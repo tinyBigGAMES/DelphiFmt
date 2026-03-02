@@ -80,3 +80,13 @@ __recovery/
 
 # Boss dependency manager vendor folder https://github.com/HashLoad/boss
 modules/
+
+# DelphiFmt
+bin/test/src/*
+!bin/test/src/.gitkeep
+/.claude
+_checkpoint.cmd
+_distro.cmd
+checkpoint.yml
+checkpoint.zip
+distro.yml
