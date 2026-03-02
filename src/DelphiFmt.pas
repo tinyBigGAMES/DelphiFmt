@@ -793,7 +793,7 @@ type
   TDelphiFmt = class
   private
     function DoFormatSource(const ASource: string;
-      const AOptions: TDelphiFmtOptions): string;
+      const AOptions: TDelphiFmtOptions; out AErrorMsg: string): string;
     {$HINTS OFF}
     function GetLineBreakStr(
       const AOption: TDelphiFmtLineBreakCharsOption): string;
@@ -975,7 +975,7 @@ end;
 // =============================================================================
 
 function TDelphiFmt.DoFormatSource(const ASource: string;
-  const AOptions: TDelphiFmtOptions): string;
+  const AOptions: TDelphiFmtOptions; out AErrorMsg: string): string;
 var
   LParse:       TParse;
   LLexer:       TParseLexer;
@@ -983,7 +983,8 @@ var
   LRoot:        TParseASTNode;
   LEmitter: TDelphiFmtEmitter;
 begin
-  Result := ASource;  // on failure, return original
+  Result    := ASource;  // on failure, return original
+  AErrorMsg := '';
 
   if Trim(ASource) = '' then
     Exit;
@@ -1009,6 +1010,7 @@ begin
       LParser := TParseParser.Create();
       try
         LParser.SetConfig(LParse.Config());
+        LParser.SetErrors(LParse.GetErrors());
 
         if not LParser.LoadFromLexer(LLexer) then
           Exit;
@@ -1016,6 +1018,12 @@ begin
         LRoot := LParser.ParseTokens();
         if LRoot = nil then
           Exit;
+
+        if LParse.HasErrors() then
+        begin
+          AErrorMsg := LParse.GetErrors().GetItems()[0].ToIDEString();
+          Exit;
+        end;
 
         // Step 3: Emit formatted source
         LEmitter := TDelphiFmtEmitter.Create();
@@ -1143,8 +1151,10 @@ end;
 
 function TDelphiFmt.FormatSource(const ASource: string;
   const AOptions: TDelphiFmtOptions): string;
+var
+  LIgnored: string;
 begin
-  Result := DoFormatSource(ASource, AOptions);
+  Result := DoFormatSource(ASource, AOptions, LIgnored);
 end;
 
 function TDelphiFmt.FormatFile(const AFilePath: string;
@@ -1156,6 +1166,7 @@ var
   LSource:     string;
   LFormatted:  string;
   LBackupPath: string;
+  LParseError: string;
 begin
   Result.FilePath := AFilePath;
   Result.Changed  := False;
@@ -1177,7 +1188,12 @@ begin
     if (Length(LSource) > 0) and (Ord(LSource[1]) = $FEFF) then
       LSource := Copy(LSource, 2, MaxInt);
 
-    LFormatted := DoFormatSource(LSource, AOptions);
+    LFormatted := DoFormatSource(LSource, AOptions, LParseError);
+    if LParseError <> '' then
+    begin
+      Result.ErrorMsg := LParseError;
+      Exit;
+    end;
 
     if LFormatted <> LSource then
     begin
