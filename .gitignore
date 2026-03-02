@@ -82,7 +82,6 @@ __recovery/
 modules/
 
 # DelphiFmt
-bin/test/src/*
 !bin/test/src/.gitkeep
 /.claude
 _checkpoint.cmd
